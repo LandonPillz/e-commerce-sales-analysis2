@@ -1,0 +1,166 @@
+-- =====================================================
+-- STEP 1: CREATE DIMENSION TABLES
+-- =====================================================
+
+CREATE TABLE dim_customers AS
+SELECT DISTINCT
+  customer_id,
+  customer_name,
+  segment
+FROM orders;
+
+CREATE TABLE dim_products AS
+SELECT DISTINCT
+  product_id,
+  product_name,
+  category,
+  sub_category
+FROM orders;
+
+CREATE TABLE dim_locations AS
+SELECT DISTINCT
+  city,
+  state,
+  country,
+  region,
+  market
+FROM orders;
+
+CREATE TABLE dim_dates AS
+SELECT DISTINCT
+  order_date,
+  YEAR(order_date) AS order_year,
+  MONTH(order_date) AS order_month,
+  DAY(order_date) AS order_day,
+  DATE_FORMAT(order_date, '%Y-%m') AS month_year
+FROM orders
+WHERE order_date IS NOT NULL;
+
+-- =====================================================
+-- STEP 2: CREATE FACT TABLE
+-- =====================================================
+
+CREATE TABLE fact_sales AS
+SELECT
+  row_id,
+  order_id,
+  order_date,
+  customer_id,
+  product_id,
+  city,
+  state,
+  country,
+  region,
+  market,
+  sales,
+  quantity,
+  discount,
+  profit,
+  shipping_cost,
+  order_priority
+FROM orders;
+
+-- =====================================================
+-- STEP 3: VALIDATION CHECKS
+-- =====================================================
+
+SELECT COUNT(*) AS orders_count FROM orders;
+SELECT COUNT(*) AS fact_sales_count FROM fact_sales;
+
+SELECT
+  SUM(order_date IS NULL) AS missing_dates,
+  SUM(customer_id IS NULL) AS missing_customers,
+  SUM(product_id IS NULL) AS missing_products,
+  SUM(sales IS NULL) AS missing_sales
+FROM fact_sales;
+
+SELECT *
+FROM fact_sales
+WHERE sales < 0 
+   OR quantity < 0 
+   OR shipping_cost < 0;
+
+-- =====================================================
+-- STEP 4: CREATE ANALYSIS VIEWS
+-- =====================================================
+
+CREATE OR REPLACE VIEW v_sales_by_region AS
+SELECT
+  region,
+  SUM(sales) AS total_sales,
+  SUM(profit) AS total_profit,
+  SUM(quantity) AS total_quantity
+FROM fact_sales
+GROUP BY region
+ORDER BY total_sales DESC;
+
+CREATE OR REPLACE VIEW v_top_customers AS
+SELECT
+  c.customer_name,
+  SUM(f.sales) AS total_sales,
+  SUM(f.profit) AS total_profit
+FROM fact_sales AS f
+JOIN dim_customers AS c 
+  ON c.customer_id = f.customer_id
+GROUP BY c.customer_name
+ORDER BY total_sales DESC
+LIMIT 10;
+
+CREATE OR REPLACE VIEW v_monthly_trend AS
+SELECT
+  d.month_year,
+  SUM(f.sales) AS total_sales,
+  SUM(f.profit) AS total_profit
+FROM fact_sales AS f
+JOIN dim_dates AS d 
+  ON d.order_date = f.order_date
+GROUP BY d.month_year
+ORDER BY d.month_year;
+
+CREATE OR REPLACE VIEW v_category_performance AS
+SELECT
+  p.category,
+  p.sub_category,
+  SUM(f.sales) AS total_sales,
+  SUM(f.profit) AS total_profit,
+  AVG(f.discount) AS avg_discount
+FROM fact_sales AS f
+JOIN dim_products AS p 
+  ON p.product_id = f.product_id
+GROUP BY p.category, p.sub_category
+ORDER BY total_profit DESC;
+
+CREATE OR REPLACE VIEW v_shipping_priority AS
+SELECT
+  f.order_priority,
+  o.ship_mode,
+  SUM(f.sales) AS total_sales,
+  SUM(f.profit) AS total_profit,
+  COUNT(*) AS num_orders
+FROM fact_sales AS f
+JOIN orders AS o 
+  ON o.row_id = f.row_id
+GROUP BY f.order_priority, o.ship_mode
+ORDER BY total_profit DESC;
+
+CREATE OR REPLACE VIEW v_running_total AS
+SELECT
+  d.month_year,
+  SUM(f.sales) AS monthly_sales,
+  SUM(SUM(f.sales)) OVER (ORDER BY d.month_year) AS running_total_sales
+FROM fact_sales AS f
+JOIN dim_dates AS d 
+  ON d.order_date = f.order_date
+GROUP BY d.month_year
+ORDER BY d.month_year;
+
+-- =====================================================
+-- STEP 5: TEST VIEWS
+-- =====================================================
+
+SELECT * FROM v_sales_by_region;
+SELECT * FROM v_top_customers;
+SELECT * FROM v_monthly_trend;
+SELECT * FROM v_category_performance;
+SELECT * FROM v_shipping_priority;
+SELECT * FROM v_running_total;
