@@ -1,0 +1,13 @@
+order_priority,ship_mode,total_sales,total_profit,num_orders
+Medium,"Standard Class",5318367.88,634310.70,21542
+High,"Standard Class",1692461.47,197629.20,6809
+Medium,"Second Class",1204885.98,139040.53,4843
+High,"Second Class",970082.11,104578.31,4010
+High,"First Class",829953.64,83945.73,3413
+Medium,"First Class",584116.44,68327.78,2358
+Low,"Standard Class",567826.16,58655.88,2424
+Critical,"First Class",416906.92,55831.12,1734
+Critical,"Second Class",390704.33,48964.07,1456
+High,"Same Day",315052.87,34219.72,1269
+Medium,"Same Day",173524.94,22524.45,690
+Critical,"Same Day",178624.51,19429.06,742
